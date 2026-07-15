@@ -4,6 +4,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -103,6 +104,27 @@ class BenchmarkControllerTest {
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(body))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void tooManyFindings_returns422BeforeGradingOrPersistence() throws Exception {
+        StringBuilder body = new StringBuilder("{\"tool\":\"ZAP\",\"findings\":[");
+        for (int i = 0; i <= 1000; i++) {
+            if (i > 0) {
+                body.append(',');
+            }
+            body.append("{\"url\":\"/oversized-").append(i).append("\",\"type\":\"UNMATCHED\"}");
+        }
+        body.append("]}");
+
+        mockMvc.perform(
+                        post("/scanner/benchmark")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body.toString()))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.error").exists());
+
+        verifyNoInteractions(benchmarkService, benchmarkResultWriter);
     }
 
     @Test

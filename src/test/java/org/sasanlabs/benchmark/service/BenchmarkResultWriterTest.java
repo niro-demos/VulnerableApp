@@ -22,7 +22,7 @@ class BenchmarkResultWriterTest {
 
         Path target = writer.write(sampleResult("ZAP"));
 
-        assertThat(target).isEqualTo(tempDir.resolve("zap-results.json"));
+        assertThat(target.getFileName().toString()).matches("zap-[0-9a-f]{16}-results\\.json");
         assertThat(Files.exists(target)).isTrue();
 
         BenchmarkResult roundTripped = MAPPER.readValue(target.toFile(), BenchmarkResult.class);
@@ -54,6 +54,21 @@ class BenchmarkResultWriterTest {
     }
 
     @Test
+    void write_keepsDistinctReportsWhenSanitizedToolNamesCollide(@TempDir Path tempDir)
+            throws Exception {
+        BenchmarkResultWriter writer = new BenchmarkResultWriter(MAPPER, tempDir.toString());
+
+        Path first = writer.write(sampleResult("scanner!"));
+        Path second = writer.write(sampleResult("scanner?"));
+
+        assertThat(first).isNotEqualTo(second);
+        assertThat(MAPPER.readValue(first.toFile(), BenchmarkResult.class).getTool())
+                .isEqualTo("scanner!");
+        assertThat(MAPPER.readValue(second.toFile(), BenchmarkResult.class).getTool())
+                .isEqualTo("scanner?");
+    }
+
+    @Test
     void write_createsBenchmarksDirectoryIfMissing(@TempDir Path tempDir) throws Exception {
         Path nested = tempDir.resolve("does/not/exist/yet");
         BenchmarkResultWriter writer = new BenchmarkResultWriter(MAPPER, nested.toString());
@@ -61,7 +76,7 @@ class BenchmarkResultWriterTest {
         Path target = writer.write(sampleResult("ZAP"));
 
         assertThat(Files.isDirectory(nested)).isTrue();
-        assertThat(target).isEqualTo(nested.resolve("zap-results.json"));
+        assertThat(target.getParent()).isEqualTo(nested);
     }
 
     @Test
@@ -72,7 +87,7 @@ class BenchmarkResultWriterTest {
 
         Path target = writer.write(sampleResult("ZAP"), overrideDir.toString());
 
-        assertThat(target).isEqualTo(overrideDir.resolve("zap-results.json"));
+        assertThat(target.getParent()).isEqualTo(overrideDir);
         assertThat(Files.exists(target)).isTrue();
         assertThat(Files.exists(defaultDir)).isFalse();
     }
@@ -84,7 +99,8 @@ class BenchmarkResultWriterTest {
 
         Path target = writer.write(sampleResult("  Burp Suite 2.14  "));
 
-        assertThat(target.getFileName().toString()).isEqualTo("burpsuite214-results.json");
+        assertThat(target.getFileName().toString())
+                .matches("burpsuite214-[0-9a-f]{16}-results\\.json");
     }
 
     @Test
