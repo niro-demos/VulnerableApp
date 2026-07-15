@@ -9,6 +9,8 @@ import org.sasanlabs.benchmark.model.BenchmarkResult;
 import org.sasanlabs.benchmark.model.ScannerFindings;
 import org.sasanlabs.benchmark.service.BenchmarkResultWriter;
 import org.sasanlabs.benchmark.service.BenchmarkService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -28,11 +30,24 @@ public class BenchmarkController {
 
     private final BenchmarkService benchmarkService;
     private final BenchmarkResultWriter benchmarkResultWriter;
+    private final int maxToolLength;
+    private final int maxFindings;
 
     public BenchmarkController(
             BenchmarkService benchmarkService, BenchmarkResultWriter benchmarkResultWriter) {
+        this(benchmarkService, benchmarkResultWriter, 128, 1000);
+    }
+
+    @Autowired
+    public BenchmarkController(
+            BenchmarkService benchmarkService,
+            BenchmarkResultWriter benchmarkResultWriter,
+            @Value("${benchmark.max-tool-length:128}") int maxToolLength,
+            @Value("${benchmark.max-findings:1000}") int maxFindings) {
         this.benchmarkService = benchmarkService;
         this.benchmarkResultWriter = benchmarkResultWriter;
+        this.maxToolLength = maxToolLength;
+        this.maxFindings = maxFindings;
     }
 
     @PostMapping("/scanner/benchmark")
@@ -47,6 +62,14 @@ public class BenchmarkController {
                             Map.of(
                                     "error",
                                     "Field 'findings' is required (use [] for an empty list)"));
+        }
+        if (input.getTool().length() > maxToolLength) {
+            return ResponseEntity.unprocessableEntity()
+                    .body(Map.of("error", "Field 'tool' exceeds the configured length limit"));
+        }
+        if (input.getFindings().size() > maxFindings) {
+            return ResponseEntity.unprocessableEntity()
+                    .body(Map.of("error", "Field 'findings' exceeds the configured item limit"));
         }
 
         BenchmarkResult result = benchmarkService.compare(input);
