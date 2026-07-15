@@ -177,6 +177,7 @@ dependencies {
 
 test {
     useJUnitPlatform()
+    environment 'JWT_HS256_SECRET', java.util.UUID.randomUUID().toString() + java.util.UUID.randomUUID().toString()
     finalizedBy jacocoTestReport
 }
 
