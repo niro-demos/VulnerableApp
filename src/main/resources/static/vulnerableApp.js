@@ -38,6 +38,31 @@ function _loadDynamicJSAndCSS(urlToFetchHtmlTemplate) {
   }
 }
 
+function _requiresOpaqueSandbox(vulnerabilityName) {
+  return vulnerabilityName.toUpperCase().includes("XSS");
+}
+
+function _renderOpaqueSandbox(responseText, urlToFetchHtmlTemplate) {
+  const frame = document.createElement("iframe");
+  frame.setAttribute("sandbox", "allow-scripts allow-forms");
+  frame.setAttribute("title", "Isolated vulnerability exercise");
+  frame.style.width = "100%";
+  frame.style.minHeight = "640px";
+  frame.style.border = "0";
+  frame.srcdoc =
+    '<!doctype html><html><head><link rel="stylesheet" href="' +
+    urlToFetchHtmlTemplate +
+    '.css"></head><body>' +
+    responseText +
+    '<script>function getUrlForVulnerabilityLevel(){return "' +
+    getUrlForVulnerabilityLevel() +
+    '"}function doGetAjaxCall(c,u,j){fetch(u).then(r=>j?r.json():r.text()).then(c)}</script>' +
+    '<script src="' +
+    urlToFetchHtmlTemplate +
+    '.js"></script></body></html>';
+  detailTitle.replaceChildren(frame);
+}
+
 function _callbackForInnerMasterOnClickEvent(
   vulnerableAppEndPointData,
   id,
@@ -79,8 +104,12 @@ function _callbackForInnerMasterOnClickEvent(
       dynamicScriptNode = parentNodeWithAllDynamicScripts.lastElementChild;
     }
     doGetAjaxCall((responseText) => {
-      detailTitle.innerHTML = responseText;
-      _loadDynamicJSAndCSS(urlToFetchHtmlTemplate);
+      if (_requiresOpaqueSandbox(vulnerabilitySelected)) {
+        _renderOpaqueSandbox(responseText, urlToFetchHtmlTemplate);
+      } else {
+        detailTitle.innerHTML = responseText;
+        _loadDynamicJSAndCSS(urlToFetchHtmlTemplate);
+      }
     }, urlToFetchHtmlTemplate + ".html");
   };
 }
